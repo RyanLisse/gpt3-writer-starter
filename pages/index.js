@@ -1,65 +1,93 @@
-import Head from 'next/head';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import buildspaceLogo from '../assets/buildspace-logo.png';
-import { useState } from 'react';
-
 const Home = () => {
-  const [userInput, setUserInput] = useState('');
-  const onUserChangedText = (event) => {
-    console.log(event.target.value);
-    setUserInput(event.target.value);
-  };
-  const [apiOutput, setApiOutput] = useState('');
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const onChange = (event) => {
+    setInput(event.target.value);
+  };
 
-  const callGenerateEndpoint = async () => {
+  const generateAction = useCallback(async () => {
+    if (isGenerating) return;
+
     setIsGenerating(true);
-
-    console.log("Calling OpenAI...");
     const response = await fetch('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ userInput }),
+      body: JSON.stringify({ input }),
     });
-
     const data = await response.json();
-    const { output } = data;
-    console.log("OpenAI replied...", output.text);
+    const { baseChoice, finalChoice } = data;
+    setOutput(
+      `Tweets:${finalChoice.text}\nStories\n${input}${baseChoice.text}`
+    );
 
-    setApiOutput(`${output.text}`);
     setIsGenerating(false);
-  }
+  }, [input, isGenerating]);
+
+  useEffect(() => {
+    const keydownHandler = async (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.code === 'Enter') {
+        event.preventDefault();
+        await generateAction();
+      }
+    };
+
+    window.addEventListener('keydown', keydownHandler);
+
+    return () => {
+      window.removeEventListener('keydown', keydownHandler);
+    };
+  }, [generateAction]);
+
   return (
     <div className="root">
       <div className="container">
         <div className="header">
-          <div className="header-title">
-            <h1>Tweet like  a Stoic Philosopher! </h1>
+          <div className="text-7xl py-4 uppercase font-black">
+            <h1>Tweet like a Stoic! </h1>
           </div>
-          <div className="header-subtitle">
+          <div className="text-xl">
             <h2>* Write a message to the stoics, ask about anything (ex. what’s the meaning of life, how did you get so Smart, etc).
-            </h2>
-          </div>
+            </h2>          </div>
         </div>
-        {/* Add this code here*/}
         <div className="prompt-container">
-          <textarea
-            placeholder="start typing here"
-            className="prompt-box"
-            value={userInput}
-            onChange={onUserChangedText}
-          />
-          {/* New code I added here */}
+          <textarea className="prompt-box" value={input} onChange={onChange} />
           <div className="prompt-buttons">
-            <a className="generate-button" onClick={callGenerateEndpoint}>
+            <div className="key-stroke">
+              {/* <p>cmd/ctrl + enter</p> */}
+            </div>
+            {/* <div className="or">
+              <p>OR</p>
+            </div> */}
+            <a
+              className={
+                isGenerating ? 'generate-button loading' : 'generate-button'
+              }
+              onClick={generateAction}
+            >
               <div className="generate">
-                <p>Generate</p>
+                {isGenerating ? <span class="loader"></span> : <p>Generate</p>}
               </div>
             </a>
           </div>
         </div>
+        {output && (
+          <div className="output">
+            <div className="output-header-container">
+              <div className="output-header">
+                <h3>Output</h3>
+              </div>
+            </div>
+            <div className="output-content">
+              <p>{output}</p>
+            </div>
+          </div>
+        )}
       </div>
       <div className="badge-container grow">
         <a
